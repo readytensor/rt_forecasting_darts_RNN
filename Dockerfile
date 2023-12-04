@@ -1,4 +1,4 @@
-FROM python:3.9.17-slim-bullseye as builder
+FROM nvidia/cuda:12.2.0-runtime-ubuntu20.04 as builder
 
 RUN apt-get -y update && apt-get install -y --no-install-recommends dos2unix \
     && rm -rf /var/lib/apt/lists/*
