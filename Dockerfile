@@ -13,6 +13,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/bin/python3 /usr/bin/python
 
+RUN pip3 install --upgrade pip
 
 COPY ./requirements.txt .
 RUN pip3 install -r requirements.txt 
