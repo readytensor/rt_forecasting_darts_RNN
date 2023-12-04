@@ -86,6 +86,8 @@ class Forecaster:
                 "accelerator": "gpu",
             }
             print("GPU training is available.")
+        else:
+            print("GPU training not available.")
 
         self.model = RNNModel(
             input_chunk_length=self.input_chunk_length,
