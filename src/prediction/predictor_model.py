@@ -8,6 +8,8 @@ from darts.models.forecasting.rnn_model import RNNModel
 from darts import TimeSeries
 from schema.data_schema import ForecastingSchema
 from sklearn.exceptions import NotFittedError
+from torch import cuda
+
 
 warnings.filterwarnings("ignore")
 
@@ -78,6 +80,13 @@ class Forecaster:
             self.history_length = kwargs["history_length"]
             kwargs.pop("history_length")
 
+        pl_trainer_kwargs = None
+        if cuda.is_available():
+            pl_trainer_kwargs = {
+                "accelerator": "gpu",
+            }
+            print("GPU training is available.")
+
         self.model = RNNModel(
             input_chunk_length=self.input_chunk_length,
             model=self.model_type,
@@ -85,6 +94,7 @@ class Forecaster:
             n_rnn_layers=self.n_rnn_layers,
             dropout=self.dropout,
             training_length=self.training_length,
+            pl_trainer_kwargs=pl_trainer_kwargs,
             **kwargs,
         )
 
