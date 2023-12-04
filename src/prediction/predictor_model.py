@@ -96,7 +96,7 @@ class Forecaster:
             n_rnn_layers=self.n_rnn_layers,
             dropout=self.dropout,
             training_length=self.training_length,
-            pl_trainer_kwargs=pl_trainer_kwargs,
+            # pl_trainer_kwargs=pl_trainer_kwargs,
             **kwargs,
         )
 
