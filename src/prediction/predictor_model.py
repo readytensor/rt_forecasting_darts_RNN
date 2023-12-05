@@ -9,6 +9,7 @@ from darts import TimeSeries
 from schema.data_schema import ForecastingSchema
 from sklearn.exceptions import NotFittedError
 from torch import cuda
+from sklearn.preprocessing import MinMaxScaler
 
 
 warnings.filterwarnings("ignore")
@@ -130,15 +131,32 @@ class Forecaster:
         ]
 
         self.all_ids = all_ids
-
-        for s in all_series:
+        scalers = {}
+        for index, s in enumerate(all_series):
             if history_length:
                 s = s.iloc[-self.history_length :]
             s.reset_index(inplace=True)
+
+            past_scaler = MinMaxScaler()
+            scaler = MinMaxScaler()
+            s[data_schema.target] = scaler.fit_transform(
+                s[data_schema.target].values.reshape(-1, 1)
+            )
+
+            scalers[index] = scaler
+
             target = TimeSeries.from_dataframe(s, value_cols=data_schema.target)
             targets.append(target)
 
             if data_schema.past_covariates:
+                original_values = (
+                    s[data_schema.past_covariates].values.reshape(-1, 1)
+                    if len(data_schema.past_covariates) == 1
+                    else s[data_schema.past_covariates].values
+                )
+                s[data_schema.past_covariates] = past_scaler.fit_transform(
+                    original_values
+                )
                 past_covariates = TimeSeries.from_dataframe(
                     s[data_schema.past_covariates]
                 )
@@ -162,9 +180,21 @@ class Forecaster:
                     [train_future_covariates, test_future_covariates], axis=0
                 )
                 future_covariates.reset_index(inplace=True)
+                future_scaler = MinMaxScaler()
+                original_values = (
+                    future_covariates[data_schema.future_covariates].values.reshape(
+                        -1, 1
+                    )
+                    if len(data_schema.future_covariates) == 1
+                    else s[data_schema.future_covariates].values
+                )
+                future_covariates[
+                    data_schema.future_covariates
+                ] = future_scaler.fit_transform(original_values)
                 future_covariates = TimeSeries.from_dataframe(future_covariates)
                 future.append(future_covariates)
 
+        self.scalers = scalers
         if not past:
             past = None
         if not future:
@@ -225,9 +255,10 @@ class Forecaster:
             future_covariates=self.future_covariates,
         )
         prediction_values = []
-        for prediction in predictions:
+        for index, prediction in enumerate(predictions):
             prediction = prediction.pd_dataframe()
             values = prediction.values
+            values = self.scalers[index].inverse_transform(values)
             prediction_values += list(values)
 
         test_data[prediction_col_name] = np.array(prediction_values)
