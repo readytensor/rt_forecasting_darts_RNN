@@ -186,7 +186,7 @@ class Forecaster:
                         -1, 1
                     )
                     if len(data_schema.future_covariates) == 1
-                    else s[data_schema.future_covariates].values
+                    else future_covariates[data_schema.future_covariates].values
                 )
                 future_covariates[
                     data_schema.future_covariates
