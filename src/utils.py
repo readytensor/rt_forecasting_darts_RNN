@@ -206,11 +206,11 @@ def process_hyperparameters(hyperparameters: dict, forecast_length: int) -> dict
         history_length = forecast_length * history_forecast_ratio
         hyperparameters["history_length"] = history_length
 
-    # if hyperparameters.get("lags_forecast_ratio"):
-    #     lags_forecast_ratio = hyperparameters["lags_forecast_ratio"]
-    #     lags = forecast_length * lags_forecast_ratio
-    #     hyperparameters["input_chunk_length"] = lags
-    #     hyperparameters["training_length"] = lags + forecast_length
+    if hyperparameters.get("lags_forecast_ratio"):
+        lags_forecast_ratio = hyperparameters["lags_forecast_ratio"]
+        lags = forecast_length * lags_forecast_ratio
+        hyperparameters["input_chunk_length"] = lags
+        # hyperparameters["training_length"] = lags + forecast_length
 
     optimizer_kwargs = None
     if "lr" in hyperparameters:

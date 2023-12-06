@@ -9,7 +9,6 @@
   "batch_size": 16,
   "lr": 1e-3,
   "training_length": 20,
-  "input_chunk_length": 14,
   "random_state": 0
 
 }
