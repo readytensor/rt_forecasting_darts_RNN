@@ -199,18 +199,23 @@ def make_serializable(obj: Any) -> Union[int, float, List[Union[int, float]], An
 
 
 def process_hyperparameters(hyperparameters: dict, forecast_length: int) -> dict:
-    to_be_removed = ["history_forecast_ratio", "lags_forecast_ratio"]
+    to_be_removed = ["history_forecast_ratio", "lags_forecast_ratio", "lr"]
 
     if hyperparameters.get("history_forecast_ratio"):
         history_forecast_ratio = hyperparameters["history_forecast_ratio"]
         history_length = forecast_length * history_forecast_ratio
         hyperparameters["history_length"] = history_length
 
-    if hyperparameters.get("lags_forecast_ratio"):
-        lags_forecast_ratio = hyperparameters["lags_forecast_ratio"]
-        lags = forecast_length * lags_forecast_ratio
-        hyperparameters["input_chunk_length"] = lags
-        hyperparameters["training_length"] = lags + forecast_length
+    # if hyperparameters.get("lags_forecast_ratio"):
+    #     lags_forecast_ratio = hyperparameters["lags_forecast_ratio"]
+    #     lags = forecast_length * lags_forecast_ratio
+    #     hyperparameters["input_chunk_length"] = lags
+    #     hyperparameters["training_length"] = lags + forecast_length
+
+    optimizer_kwargs = None
+    if "lr" in hyperparameters:
+        optimizer_kwargs = {"lr": hyperparameters["lr"]}
+        hyperparameters["optimizer_kwargs"] = optimizer_kwargs
 
     for k in to_be_removed:
         if k in hyperparameters:
