@@ -212,11 +212,6 @@ def process_hyperparameters(hyperparameters: dict, forecast_length: int) -> dict
         hyperparameters["input_chunk_length"] = lags
         # hyperparameters["training_length"] = lags + forecast_length
 
-    optimizer_kwargs = None
-    if "lr" in hyperparameters:
-        optimizer_kwargs = {"lr": hyperparameters["lr"]}
-        hyperparameters["optimizer_kwargs"] = optimizer_kwargs
-
     for k in to_be_removed:
         if k in hyperparameters:
             hyperparameters.pop(k)

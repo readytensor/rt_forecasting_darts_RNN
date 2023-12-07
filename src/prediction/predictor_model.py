@@ -37,6 +37,7 @@ class Forecaster:
         n_rnn_layers: int = 1,
         dropout: float = 0.0,
         training_length: int = 24,
+        optimizer_kwargs: Optional[dict] = None,
         random_state: Optional[int] = 0,
         **kwargs,
     ):
@@ -66,6 +67,7 @@ class Forecaster:
         self.n_rnn_layers = n_rnn_layers
         self.dropout = dropout
         self.training_length = training_length
+        self.optimizer_kwargs = optimizer_kwargs
         self.random_state = random_state
         self._is_trained = False
         self.kwargs = kwargs
@@ -97,6 +99,7 @@ class Forecaster:
             n_rnn_layers=self.n_rnn_layers,
             dropout=self.dropout,
             training_length=self.training_length,
+            optimizer_kwargs=self.optimizer_kwargs,
             pl_trainer_kwargs=pl_trainer_kwargs,
             **kwargs,
         )
@@ -122,6 +125,23 @@ class Forecaster:
         targets = []
         past = []
         future = []
+
+        future_covariates_names = data_schema.future_covariates
+        if data_schema.time_col_dtype == "DATE":
+            date_col = pd.to_datetime(history[data_schema.time_col])
+            year_col = date_col.dt.year
+            month_col = date_col.dt.month
+            year_col_name = f"{data_schema.time_col}_year"
+            month_col_name = f"{data_schema.time_col}_month"
+            history[year_col_name] = year_col
+            history[month_col_name] = month_col
+            future_covariates_names += [year_col_name, month_col_name]
+
+            date_col = pd.to_datetime(test_dataframe[data_schema.time_col])
+            year_col = date_col.dt.year
+            month_col = date_col.dt.month
+            test_dataframe[year_col_name] = year_col
+            test_dataframe[month_col_name] = month_col
 
         groups_by_ids = history.groupby(data_schema.id_col)
         all_ids = list(groups_by_ids.groups.keys())
@@ -162,7 +182,7 @@ class Forecaster:
                 )
                 past.append(past_covariates)
 
-        if data_schema.future_covariates:
+        if future_covariates_names:
             test_groups_by_ids = test_dataframe.groupby(data_schema.id_col)
             test_all_series = [
                 test_groups_by_ids.get_group(id_).drop(columns=data_schema.id_col)
@@ -172,26 +192,26 @@ class Forecaster:
             for train_series, test_series in zip(all_series, test_all_series):
                 if history_length:
                     train_series = train_series.iloc[-self.history_length :]
-                    test_series = test_series.iloc[-self.history_length :]
 
-                train_future_covariates = train_series[data_schema.future_covariates]
-                test_future_covariates = test_series[data_schema.future_covariates]
+                train_future_covariates = train_series[future_covariates_names]
+                test_future_covariates = test_series[future_covariates_names]
                 future_covariates = pd.concat(
                     [train_future_covariates, test_future_covariates], axis=0
                 )
+
                 future_covariates.reset_index(inplace=True)
                 future_scaler = MinMaxScaler()
                 original_values = (
-                    future_covariates[data_schema.future_covariates].values.reshape(
-                        -1, 1
-                    )
-                    if len(data_schema.future_covariates) == 1
-                    else future_covariates[data_schema.future_covariates].values
+                    future_covariates[future_covariates_names].values.reshape(-1, 1)
+                    if len(future_covariates_names) == 1
+                    else future_covariates[future_covariates_names].values
                 )
                 future_covariates[
-                    data_schema.future_covariates
+                    future_covariates_names
                 ] = future_scaler.fit_transform(original_values)
-                future_covariates = TimeSeries.from_dataframe(future_covariates)
+                future_covariates = TimeSeries.from_dataframe(
+                    future_covariates[future_covariates_names]
+                )
                 future.append(future_covariates)
 
         self.scalers = scalers
@@ -229,6 +249,7 @@ class Forecaster:
             targets,
             future_covariates=future_covariates,
         )
+
         self._is_trained = True
         self.data_schema = data_schema
         self.targets_series = targets
