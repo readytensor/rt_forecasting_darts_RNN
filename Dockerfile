@@ -30,6 +30,10 @@ ENV MPLCONFIGDIR=/tmp/matplotlib
 ENV PYTHONUNBUFFERED=TRUE
 ENV PYTHONDONTWRITEBYTECODE=TRUE
 ENV PATH="/opt/app:${PATH}"
+
+RUN mkdir -p /opt/src/darts_logs && chmod -R 777 /opt/src/darts_logs
+
+
 # set non-root user
 USER 1000
 # set entrypoint
