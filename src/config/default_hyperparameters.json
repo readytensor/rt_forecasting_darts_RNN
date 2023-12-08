@@ -1,5 +1,5 @@
 {
-  "history_forecast_ratio": 20,
+  "history_forecast_ratio": 10,
   "lags_forecast_ratio": 3,
   "hidden_dim": 20,
   "n_rnn_layers": 1,
