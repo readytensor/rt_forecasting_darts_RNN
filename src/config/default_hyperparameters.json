@@ -1,17 +1,17 @@
 {
   "history_forecast_ratio": 10,
-  "lags_forecast_ratio": 3,
   "hidden_dim": 20,
   "n_rnn_layers": 1,
   "dropout": 0.0,
   "model": "LSTM",
-  "n_epochs": 300,
+  "n_epochs": 500,
   "batch_size": 16,
   "training_length": 20,
   "input_chunk_length": 14,
   "force_reset": true,
   "save_checkpoints": true,
   "optimizer_kwargs": {"lr": 1e-3},
+  "use_exogenous": true,
   "random_state": 0
 
 }

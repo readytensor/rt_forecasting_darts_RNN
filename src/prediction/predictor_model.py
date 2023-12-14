@@ -10,6 +10,7 @@ from schema.data_schema import ForecastingSchema
 from sklearn.exceptions import NotFittedError
 from torch import cuda
 from sklearn.preprocessing import MinMaxScaler
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 
 warnings.filterwarnings("ignore")
@@ -31,20 +32,37 @@ class Forecaster:
     def __init__(
         self,
         data_schema: ForecastingSchema,
-        input_chunk_length: int,
+        input_chunk_length: int = None,
+        history_forecast_ratio: int = None,
+        lags_forecast_ratio: int = None,
         model: str = "RNN",
         hidden_dim: int = 25,
         n_rnn_layers: int = 1,
         dropout: float = 0.0,
         training_length: int = 24,
         optimizer_kwargs: Optional[dict] = None,
+        use_exogenous: bool = None,
         random_state: Optional[int] = 0,
         **kwargs,
     ):
         """Construct a new RNN Forecaster
 
         Args:
-            input_chunk_length (int): Number of past time steps that are fed to the forecasting module at prediction time.
+            input_chunk_length (int):
+                Number of past time steps that are fed to the forecasting module at prediction time.
+                Note: If this parameter is not specified, lags_forecast_ratio has to be specified.
+
+
+            history_forecast_ratio (int):
+                Sets the history length depending on the forecast horizon.
+                For example, if the forecast horizon is 20 and the history_forecast_ratio is 10,
+                history length will be 20*10 = 200 samples.
+
+
+            lags_forecast_ratio (int):
+                Sets the input_chunk_length and output_chunk_length parameters depending on the forecast horizon.
+                input_chunk_length = forecast horizon * lags_forecast_ratio
+
 
             model (str): A string specifying the RNN module type (“RNN”, “LSTM” or “GRU”).
 
@@ -58,6 +76,9 @@ class Forecaster:
                 Generally speaking, training_length should have a higher value than input_chunk_length because otherwise during training
                 the RNN is never run for as many iterations as it will during inference.
 
+            use_exogenous (bool):
+                If true, uses covariates for training.
+
             random_state (int): Sets the underlying random seed at model initialization time.
         """
         self.data_schema = data_schema
@@ -68,26 +89,32 @@ class Forecaster:
         self.dropout = dropout
         self.training_length = training_length
         self.optimizer_kwargs = optimizer_kwargs
+        self.use_exogenous = use_exogenous
         self.random_state = random_state
         self._is_trained = False
         self.kwargs = kwargs
 
-        if not data_schema.past_covariates:
-            self.lags_past_covariates = None
+        if history_forecast_ratio:
+            self.history_length = (
+                self.data_schema.forecast_length * history_forecast_ratio
+            )
 
-        if not data_schema.future_covariates:
-            self.lags_future_covariates = None
+        if lags_forecast_ratio:
+            lags = self.data_schema.forecast_length * lags_forecast_ratio
+            self.input_chunk_length = lags
+            self.training_length = lags + self.data_schema.forecast_length
 
-        self.history_length = None
-        if kwargs.get("history_length"):
-            self.history_length = kwargs["history_length"]
-            kwargs.pop("history_length")
+        stopper = EarlyStopping(
+            monitor="train_loss",
+            patience=30,
+            min_delta=0.0005,
+            mode="min",
+        )
 
-        pl_trainer_kwargs = None
+        pl_trainer_kwargs = {"callbacks": [stopper]}
+
         if cuda.is_available():
-            pl_trainer_kwargs = {
-                "accelerator": "gpu",
-            }
+            pl_trainer_kwargs["accelerator"] = "gpu"
             print("GPU training is available.")
         else:
             print("GPU training not available.")
@@ -127,7 +154,7 @@ class Forecaster:
         future = []
 
         future_covariates_names = data_schema.future_covariates
-        if data_schema.time_col_dtype == "DATE":
+        if data_schema.time_col_dtype in ["DATE", "DATETIME"]:
             date_col = pd.to_datetime(history[data_schema.time_col])
             year_col = date_col.dt.year
             month_col = date_col.dt.month
@@ -245,6 +272,10 @@ class Forecaster:
             data_schema=data_schema,
             test_dataframe=test_dataframe,
         )
+
+        if not self.use_exogenous:
+            future_covariates = None
+
         self.model.fit(
             targets,
             future_covariates=future_covariates,
